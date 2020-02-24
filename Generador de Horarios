@@ -1,0 +1,453 @@
+import tkinter as tk
+import numpy as np
+import itertools as it
+import pandas as pd
+
+from os import remove
+from os import path
+
+
+
+
+
+
+
+#Programa Hecho Por David Francisco Yanez Lopez
+ventana = tk.Tk()
+ventana.title("Generador de Horarios - By David Yánez")
+ventana.geometry("600x400")
+ventana.resizable(False,False)
+
+
+canvas=tk.Canvas(ventana, width=400, height=400, relief='raised')
+canvas.pack()
+
+h_ent=tk.Entry(ventana,width=20,bg="white")
+canvas.create_window(80, 40, window=h_ent)
+
+h_sal=tk.Entry(ventana,width=20,bg="white")
+canvas.create_window(80, 90, window=h_sal)
+
+m_max=tk.Entry(ventana,width=20,bg="white")
+canvas.create_window(80, 140, window=m_max)
+
+t_hueco=tk.Entry(ventana,width=20,bg="white")
+canvas.create_window(80, 190, window=t_hueco)
+
+def prob_maxM():
+
+    msj_sal = tk.Label(ventana, text='Ingrese hasta que hora desea usted\n terminar sus clases con el formato (hh:mm)')
+    canvas.create_window(300, 90, window=msj_sal)
+    msj_max = tk.Label(ventana, text='Ingrese hasta cuantas\nmaterias desea ver por dia')
+    canvas.create_window(300, 140, window=msj_max)
+    msj_hueco = tk.Label(ventana,
+                         text='Ingrese hasta cuanto tiempo esperaria\npara ver una materia tras otra con el formato (hh:mm)')
+    canvas.create_window(300, 190, window=msj_hueco)
+    cad = ""
+    for x in range(7, 20):
+        if len(str(x)) != 2:
+            x = "0" + str(x)
+        cad += str(x) + ":00," + str(x) + ":30,"
+    hrs = cad.split(",")[1:-1]
+    ejecu=True
+    horaent=h_ent.get().strip()
+    horasal=h_sal.get().strip()
+    maxM=m_max.get().strip()
+    hueco=t_hueco.get().strip()
+
+    if horaent not in hrs:
+        label1 = tk.Label(ventana, text='Hora no valida', font=('helvetica', 10))
+        canvas.create_window(80, 65, window=label1)
+        ejecu = False
+    else:
+        label1 = tk.Label(ventana, text='                        ', font=('helvetica', 10))
+        canvas.create_window(80, 65, window=label1)
+
+    val = False
+    if horasal in hrs:
+        if hrs.index(horasal) <= hrs.index(horaent):
+            val = True
+            ejecu = False
+    if (horasal not in hrs) or val:
+        label2 = tk.Label(ventana, text='Hora no valida', font=('helvetica', 10))
+        canvas.create_window(80, 115, window=label2)
+        ejecu = False
+    else:
+        label2 = tk.Label(ventana, text='                    ', font=('helvetica', 10))
+        canvas.create_window(80, 115, window=label2)
+
+    if not maxM.isdigit():
+        label3 = tk.Label(ventana, text='Error de Ingreso', font=('helvetica', 10))
+        canvas.create_window(80, 165, window=label3)
+        ejecu=False
+    else:
+        label3 = tk.Label(ventana, text='                            ', font=('helvetica', 10))
+        canvas.create_window(80, 165, window=label3)
+
+    huecos = ['00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30', '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00','10:30', '11:00', '11:30', '12:00']
+    if hueco not in huecos:
+        label4 = tk.Label(ventana, text='Error de Ingreso', font=('helvetica', 10))
+        canvas.create_window(80, 215, window=label4)
+        ejecu = False
+    else:
+        label4 = tk.Label(ventana, text='                           ', font=('helvetica', 10))
+        canvas.create_window(80, 215, window=label4)
+
+    if ejecu:
+        try:
+            maxM = int(maxM)
+            t_esp = huecos.index(hueco)
+            posi = hrs.index(horaent)
+            posf = hrs.index(horasal)
+            hrs = hrs[posi:posf + 1]
+
+            LH = []
+            for i in range(len(hrs) - 1):
+                LH.append(hrs[i] + "-" + hrs[i + 1])
+            dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+
+            d = {}
+            mms = []  # Materias
+            pars = []  # Paralelos
+            archi = open("mpl-data/Plantilla.txt", "r",encoding="cp1252")
+            for lin in archi:
+                lin = lin.strip()
+                if lin.startswith("Materia:"):
+                    mms.append(lin[8:].strip())
+                elif lin.startswith('Paralelo:'):
+                    pars.append(lin[9:].strip())
+                else:
+                    sub_d = {}
+                    inf = lin.strip().split('-')
+                    sd = {}
+                    for p in inf:  # Creo el diccionario de inicio y fin de clase
+                        dats = p.split("\t")
+                        di = dats[0].strip()
+                        if di not in sd:
+                            sd[di] = {"Inicio": dats[1].strip()[:5], "Fin": dats[2].strip()[:5]}
+                        else:
+                            sd[di]["Fin"] = dats[2].strip()[:5]
+                    if mms[-1] not in d:
+                        sub_d[pars[-1]] = sd  # Agrego la informacion del paralelo
+                        d[mms[-1]] = sub_d  # Agrego el paralelo para la materia
+                    else:
+                        d[mms[-1]][pars[-1]] = sd
+            archi.close()
+
+            mates = []  # Creo una lista con la materia con sus respectivos paralelos
+            for m in d:
+                for pa in d[m]:
+                    mates.append(m + "-" + pa)
+            mate_comb = []  # Lista con las combinaciones entre las materias con sus paralelos
+            for combi in it.combinations(mates, len(d)):  # Recorro todas las combinaciones de las materias
+                c = 0
+                repe = []  # Lista para las materias registradas en la combinacion para evitar repeticion de materia
+                for elem in combi:
+                    pos = elem.index("-")
+                    elem = elem[:pos]  # Le quito el paralelo a la materia solo me interesa saber la materia
+                    if elem not in repe:  # Si no esta en la lista la guardo
+                        repe.append(elem)
+                    else:  # Caso contrario incremento el contador que me lleva la cuenta de cuantas repeticiones se dan en la combinacion
+                        c += 1
+                if c == 0:  # Si no hubo repeticiones en las materias combinadas entonces guardo esa combinacion
+                    mate_comb.append(combi)
+            # Horarios con combinacion pero con choque
+            horarios = {}
+            c1 = 1
+            for comb in mate_comb:  # Recorro las tuplas de combinaciones
+                hor = {"Lunes": {}, "Martes": {}, "Miércoles": {}, "Jueves": {}, "Viernes": {}}
+                for mater in comb:  # Recorro las materias con paralelo de esa combinacin
+                    pos = mater.index("-")
+                    materia = mater[:pos]
+                    paral = mater[pos + 1:]
+                    for dia in d[materia][paral]:
+                        hor[dia][materia] = {paral: d[materia][paral][dia]}
+                horarios["H" + str(c1)] = hor
+                c1 += 1
+
+            # Filtro de horarios para tener los que no chocan
+            horarios_final = {}
+            for h in horarios:  # Horarios con choque
+                choques = 0
+                hor_h = horarios[h]  #
+                for ds in hor_h:  # Dias del horario
+                    horas = hrs.copy()
+                    clas = hor_h[ds]
+                    regs = []
+                    regi = []  # Horas de inicio
+                    regf = []  # Horas de salida
+                    for m in clas:
+                        for p in clas[m]:
+                            clasei=clas[m][p]["Inicio"]
+                            clasef=clas[m][p]["Fin"]
+                            if (clasei in hrs) and (clasef in hrs):
+                                if m.endswith('*'):
+                                    ci="a.a"
+                                    cf = "e.e"
+                                    if clasef==hrs[-1]:
+                                        cf = hrs[hrs.index(clasef)]
+                                    else:
+                                        cf = hrs[hrs.index(clasef) + 1]
+                                    if clasei==hrs[0]:
+                                        ci = hrs[hrs.index(clasei)]
+                                    else:
+                                        ci = hrs[hrs.index(clasei) - 1]
+                                    regs.append([ci, cf])
+                                    regi.append(ci)
+                                    regf.append(cf)
+                                else:
+                                    regs.append([clasei, clasef])
+                                    regi.append(clasei)
+                                    regf.append(clasef)
+                            else:
+                                choques += 1
+                                break
+
+
+                    if len(regi) > 1:  # Si en el dia hay mas de 1 clase
+                        vregi = np.array(regi, dtype=str)
+                        vregf = np.array(regf, dtype=str)
+                        if (np.size(np.unique(vregi)) - np.size(vregi)) != 0:
+                            choques += 1
+                            break
+                        if (np.size(np.unique(vregf)) - np.size(vregf)) != 0:
+                            choques += 1
+                            break
+                        for hr in regs:
+                            inds = []
+                            for hp in hr:
+                                if hp in horas:
+                                    inds.append(horas.index(hp))
+                                else:
+                                    choques += 1
+                                    break
+                            if len(inds) == 2:
+                                for i in range(inds[0], inds[1]):
+                                    horas[i] = '0'
+                if choques == 0:
+                    horarios_final[h] = hor_h
+
+            horariosF = {}
+            for h in horarios_final:
+                cm = 0
+                for ds in horarios_final[h]:
+                    if len(horarios_final[h][ds]) > maxM:
+                        cm += 1
+                        break
+                if cm == 0:
+                    ht = {}
+                    dt = horarios_final[h]
+                    for ds in dt:
+                        dt2 = {}
+                        dic_ds = dt[ds]
+                        for mats in dic_ds:
+                            clav = list(dic_ds[mats].keys())[0]
+                            dt2[mats + "-P" + clav] = dic_ds[mats][clav]
+                        ht[ds] = dt2
+                    horariosF[h] = ht
+
+            df = {}
+            for h in horariosF:
+                M2=np.empty((len(LH), len(dias)),dtype='str')
+                MP=pd.DataFrame(M2,index=LH,columns=dias,dtype='str')
+                hf = horariosF[h]
+                for ds in hf:
+                    for m in hf[ds]:
+                        ini = hf[ds][m]["Inicio"]
+                        fin = hf[ds][m]["Fin"]
+                        MP.loc[ini:fin,ds]=m.strip()
+                esta = 1
+
+                M=MP.to_numpy()
+                for y in range(len(dias)):
+                    fila = M[:, y]
+                    unis = np.unique(fila)
+                    if np.size(unis) >= 3:
+                        l_uni = []
+                        l = []
+                        for i in fila:
+                            i = i.strip()
+                            l.append(i.strip())
+                            if len(i) != 0 and i not in l_uni:
+                                l_uni.append(i)
+                        for i in range(len(l_uni) - 1):
+                            ele_i = l_uni[i]
+                            ele_f = l_uni[i + 1]
+                            ind_i = l.index(ele_i)
+                            ind_f = l.index(ele_f)
+                            if l[ind_i:ind_f + 1].count("") > t_esp:
+                                esta = 0
+                if esta == 1:
+                    df[h] = {1: hf, 2: M}
+
+            arch = open("Horarios.csv", "w",encoding="cp1252")
+            cf = 2
+            cad = " ;Lunes;Martes;Miércoles;Jueves;Viernes\n"
+            for h in df:
+                hf = df[h]
+
+                M = hf[2]
+                for x in range(len(LH)):
+                    fil = LH[x] + ";"
+                    for y in range(len(dias)):
+                        fil += M[x, y].strip() + ";"
+                    fil += "\n"
+                    cad += fil
+                if cf<len(df)+1:
+                    cad += "\n\n;;;" + "Horario " + str(cf) + " ;;\n\n"
+                cf += 1
+            arch.write(cad)
+            arch.close()
+            label6 = tk.Label(ventana, text="                               "+str(len(df))+"  Horarios Generados Exitosamente                                ", font=('helvetica', 10))
+            canvas.create_window(200, 345, window=label6)
+        except:
+            label7 = tk.Label(ventana, text="     Datos Cargados Incorrectos o Inexistentes, Ingrese Datos Nuevos     ", font=('helvetica', 10))
+            canvas.create_window(200, 345, window=label7)
+    else:
+        label6 = tk.Label(ventana, text="                                                  "*30, font=('helvetica', 10))
+        canvas.create_window(200, 345, window=label6)
+    return ""
+
+
+
+def Carg_dat():
+
+    def Limpiar2():
+        val_mat.delete(first=0, last=400)
+        val_par.delete(first=0, last=400)
+        val_dia1.delete(first=0, last=400)
+        val_dia2.delete(first=0, last=400)
+        val_dia3.delete(first=0, last=400)
+        msj_car = tk.Label(sub_v, text='                                                        ')
+        canvas2.create_window(200, 290, window=msj_car)
+        msj_err = tk.Label(sub_v, text='                                          ')
+        canvas2.create_window(290, 91, window=msj_err)
+        return ""
+
+    def Salir():
+        sub_v.destroy()
+        return
+
+    def proc_inf():
+        L=[val_dia1.get().strip(),val_dia2.get().strip(),val_dia3.get().strip()]
+        lf=[]
+        for i in L:
+            if len(i)>4:
+                lf.append(i.strip())
+        cade="-".join(lf)
+        para=val_par.get().strip()
+        if not para.isdigit():
+            msj_err = tk.Label(sub_v, text='Ingrese Paralelo Válido')
+            canvas2.create_window(290, 91, window=msj_err)
+            msj_car = tk.Label(sub_v, text='Error Durante la Carga de Datos')
+            canvas2.create_window(200, 290, window=msj_car)
+        else:
+            mater="Materia:"+val_mat.get().strip()
+            paral="Paralelo:"+para
+            if len(val_mat.get().strip())!=0 and len(cade)>4 :#len(cade)//len(lf)>4
+                if len(cade)//len(lf)>4:
+                    Cad_Fin="{}\n{}\n{}\n".format(mater,paral,cade)
+                    archi=open("mpl-data/Plantilla.txt", "a",encoding="cp1252")
+                    archi.write(Cad_Fin)
+                    archi.close()
+                    msj_car = tk.Label(sub_v, text='Datos Cargados Exitosamente')
+                    canvas2.create_window(200, 290, window=msj_car)
+                    val_dia1.delete(first=0, last=400)
+                    val_dia2.delete(first=0, last=400)
+                    val_dia3.delete(first=0, last=400)
+                    val_par.delete(first=0, last=400)
+                    msj_err = tk.Label(sub_v, text='                                          ')
+                    canvas2.create_window(290, 91, window=msj_err)
+                else:
+                    msj_car = tk.Label(sub_v, text='Error Durante la Carga de Datos')
+                    canvas2.create_window(200, 290, window=msj_car)
+            else:
+                msj_car = tk.Label(sub_v, text='Error Durante la Carga de Datos')
+                canvas2.create_window(200, 290, window=msj_car)
+
+
+    sub_v = tk.Tk()
+    sub_v.title("Registrador de Datos")
+    sub_v.geometry("470x320")
+    sub_v.resizable(False, False)
+    canvas2 = tk.Canvas(sub_v, width=400, height=320, relief='raised')
+    msj_mat = tk.Label(sub_v, text='Ingrese el nombre de la materia:')
+    canvas2.create_window(100, 40, window=msj_mat)
+    val_mat = tk.Entry(sub_v, width=30, bg="white")
+    canvas2.create_window(290, 40, window=val_mat)
+
+    msj_par = tk.Label(sub_v, text='Ingrese el paralelo:')
+    canvas2.create_window(65, 70, window=msj_par)
+    val_par = tk.Entry(sub_v, width=10, bg="white")
+    canvas2.create_window(230, 70, window=val_par)
+
+    msj_dia1 = tk.Label(sub_v, text='Ingrese el horario del 1er día:')
+    canvas2.create_window(91, 120, window=msj_dia1)
+    val_dia1 = tk.Entry(sub_v, width=34, bg="white")
+    canvas2.create_window(290, 120, window=val_dia1)
+
+    msj_dia2 = tk.Label(sub_v, text='Ingrese el horario del 2do día:')
+    canvas2.create_window(91, 150, window=msj_dia2)
+    val_dia2 = tk.Entry(sub_v, width=34, bg="white")
+    canvas2.create_window(290, 150, window=val_dia2)
+
+    msj_dia3 = tk.Label(sub_v, text='Ingrese el horario del 3er día:')
+    canvas2.create_window(91, 180, window=msj_dia3)
+    val_dia3 = tk.Entry(sub_v, width=34, bg="white")
+    canvas2.create_window(290, 180, window=val_dia3)
+
+    bot_limp2 = tk.Button(sub_v, text="Limpiar Todo", command=Limpiar2, fg="black", font="arial 10")
+    canvas2.create_window(50, 250, window=bot_limp2)
+
+    bot_carg = tk.Button(sub_v, text="Cargar Datos", command=proc_inf, fg="black", font="arial 10")
+    canvas2.create_window(220, 250, window=bot_carg)
+
+    bot_sal = tk.Button(sub_v, text="Salir", command=Salir, fg="black", font="arial 10")
+    canvas2.create_window(375, 250, window=bot_sal)
+
+    sub_v.geometry("+{}+{}".format(430, 200))
+    canvas2.pack()
+
+    return ""
+
+def Carg_nd():
+    print(Carg_dat())
+    if path.exists("mpl-data/Plantilla.txt"):
+        remove("mpl-data/Plantilla.txt")
+        label6 = tk.Label(ventana, text="             Datos Previos Borrados Exitosamente            ",
+                          font=('helvetica', 10))
+        canvas.create_window(200, 345, window=label6)
+    return " "
+
+msj_ent=tk.Label(ventana, text='Ingrese a que hora desea usted empezar\n sus clases con el formato (hh:mm)')
+canvas.create_window(300, 40, window=msj_ent)
+msj_sal=tk.Label(ventana, text='Ingrese hasta que hora desea usted\n terminar sus clases con el formato (hh:mm)')
+canvas.create_window(300, 90, window=msj_sal)
+msj_max=tk.Label(ventana, text='Ingrese hasta cuantas\nmaterias desea ver por dia')
+canvas.create_window(300, 140, window=msj_max)
+msj_hueco=tk.Label(ventana, text='Ingrese hasta cuanto tiempo esperaria\npara ver una materia tras otra con el formato (hh:mm)')
+canvas.create_window(300, 190, window=msj_hueco)
+
+
+bot_ent=tk.Button(ventana,text="Generar Horarios",command=prob_maxM,fg="black",font="arial 10")
+canvas.create_window(400, 300, window=bot_ent)
+
+bot_dat=tk.Button(ventana,text="Agregar Datos",command=Carg_dat,fg="black",font="arial 10")
+canvas.create_window(10, 300, window=bot_dat)
+
+bot_nd=tk.Button(ventana,text="Ingresar Datos Nuevos",command=Carg_nd,fg="black",font="arial 10")
+canvas.create_window(210, 300, window=bot_nd)
+
+
+ventana.geometry("+{}+{}".format(340, 150))
+
+ventana.mainloop()
+
+
+
+
+#Programa Hecho Por David Francisco Yanez Lopez
+__author__ = "David Francisco Yanez Lopez"
+__copyright__ = "Copyright (C) 2020 David Francisco Yanez Lopez"
+__version__ = "4.5"
+
